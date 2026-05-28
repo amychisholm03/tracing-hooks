@@ -97,6 +97,9 @@ test('should not rewrite code if a function query does not exist in file', async
 
 test('should patch if Window-styled path', async (t) => {
   const { snap } = t.ctx
+  // Use filePath with forward slashes as configs always do.
+  // On Windows, module-details-from-path produces backslash paths (lib\bar.js)
+  // which must be normalized to match the config's forward-slash filePath.
   const modulePatch = new ModulePatch({
     instrumentations: [
       {

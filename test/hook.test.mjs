@@ -205,12 +205,12 @@ test('should default initialization to not crash if not defined', async (t) => {
 })
 
 
-test('should resolve correctly if Window-styled path', async(t)=>{
+test('should rewrite code if it matches a subscriber with a Windows-style backslash path', async (t) => {
   const { esmLoaderRewriter, snap } = t.ctx
   esmLoaderRewriter.initialize({
     instrumentations: [
       {
-        channelName: 'unitTestEsm',
+        channelName: 'unitTestEsmWindowsPath',
         module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'lib/bar.js' },
         functionQuery: {
           className: 'Foo',
@@ -220,20 +220,24 @@ test('should resolve correctly if Window-styled path', async(t)=>{
       }
     ]
   })
-  const esmBasePath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg')
-  // Simulate Windows-style backslash in the path within the package
-  const windowsStyleUrl = `file://${esmBasePath}/lib\\bar.js`
+  const basePath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg')
+  // Simulate Windows-style backslash in the path within the package.
+  // On Windows, module-details-from-path uses path.sep (\) to reconstruct
+  // relative paths, producing 'lib\bar.js' instead of 'lib/bar.js'.
+  // By embedding a backslash in the URL, parse() will return a .path of
+  // 'lib\bar.js' on any platform, mimicking the Windows behavior.
+  const windowsStyleUrl = `file://${basePath}/lib\\bar.js`
+  const realPath = path.join(basePath, 'lib', 'bar.js')
   async function resolveFn() {
     return { url: windowsStyleUrl }
   }
   async function nextLoad() {
-    const data = readFileSync(path.join(esmBasePath, 'lib', 'bar.js'), 'utf8')
+    const data = readFileSync(realPath, 'utf8')
     return {
       format: 'module',
       source: data
     }
   }
-
   const url = await esmLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
   const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
   assert.equal(result.format, 'module')
